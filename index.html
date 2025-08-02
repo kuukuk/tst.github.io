@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>GPT Spracheingabe</title>
+  <meta charset="UTF-8" />
+  <title>GPT Spracheingabe mit Pause</title>
   <style>
     body { font-family: sans-serif; padding: 1rem; }
     button { font-size: 1.2rem; padding: 0.5rem 1rem; }
@@ -11,65 +11,81 @@
 </head>
 <body>
 
-<h2>🎤 GPT Sprachsteuerung</h2>
+<h2>🎤 GPT Sprachsteuerung mit Pauseerkennung</h2>
 <button id="startBtn">Spracheingabe starten</button>
 <div id="transcript">🗣 Du: </div>
 <div id="response">🤖 GPT: </div>
 
 <script>
-  const OPENAI_API_KEY = "DEIN_API_KEY_HIER"; // <<< Hier deinen Key einsetzen
+  const OPENAI_API_KEY = "DEIN_API_KEY_HIER"; // Hier API-Key eintragen
   const recognition = new webkitSpeechRecognition();
 
   recognition.lang = "de-DE";
-  recognition.continuous = false;
-  recognition.interimResults = false;
+  recognition.continuous = true; // dauerhaft zuhören
+  recognition.interimResults = true; // Zwischenresultate anzeigen
 
-  let lastSpokenText = "";
-  let timeout = null;
+  let finalTranscript = "";
+  let pauseTimeout = null;
 
-  recognition.onresult = function(event) {
-    const spokenText = event.results[0][0].transcript.trim();
-    lastSpokenText = spokenText;
-    document.getElementById("transcript").textContent = "🗣 Du: " + spokenText;
+  function sendToChatGPT(text) {
+    document.getElementById("response").textContent = "🤖 GPT: Warte auf Antwort...";
+    fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + OPENAI_API_KEY
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: text }]
+      })
+    })
+      .then(res => res.json())
+      .then(data => {
+        const answer = data.choices?.[0]?.message?.content || "Keine Antwort erhalten.";
+        document.getElementById("response").textContent = "🤖 GPT: " + answer;
+      })
+      .catch(err => {
+        document.getElementById("response").textContent = "Fehler: " + err.message;
+      });
+  }
 
-    // ⏳ 5 Sekunden warten, ob noch was kommt
-    clearTimeout(timeout);
-    timeout = setTimeout(() => {
-      sendToChatGPT(lastSpokenText);
-    }, 5000); // 5000 ms = 5 Sekunden Denkpause
+  recognition.onresult = event => {
+    let interimTranscript = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript + " ";
+      } else {
+        interimTranscript += event.results[i][0].transcript;
+      }
+    }
+    document.getElementById("transcript").textContent = "🗣 Du: " + finalTranscript + interimTranscript;
+
+    // Reset Timer bei jedem Ergebnis (auch Zwischenresultat)
+    clearTimeout(pauseTimeout);
+    pauseTimeout = setTimeout(() => {
+      if(finalTranscript.trim().length > 0){
+        sendToChatGPT(finalTranscript.trim());
+        finalTranscript = ""; // Reset nach Absenden
+      }
+    }, 5000); // 5 Sekunden Pause
   };
 
-  recognition.onend = function() {
-    // Falls du willst, dass er automatisch neu startet:
-    // recognition.start();
+  recognition.onerror = event => {
+    console.error("Speech recognition error", event.error);
   };
 
-  document.getElementById("startBtn").onclick = function() {
+  recognition.onend = () => {
+    // Automatisch neu starten, damit kontinuierlich gelauscht wird
     recognition.start();
   };
 
-  async function sendToChatGPT(text) {
-    const responseDiv = document.getElementById("response");
-    responseDiv.textContent = "🤖 GPT: Warte auf Antwort...";
-    try {
-      const result = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + OPENAI_API_KEY
-        },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo", // oder "gpt-4o"
-          messages: [{ role: "user", content: text }]
-        })
-      });
-      const data = await result.json();
-      const answer = data.choices?.[0]?.message?.content || "Keine Antwort erhalten.";
-      responseDiv.textContent = "🤖 GPT: " + answer;
-    } catch (error) {
-      responseDiv.textContent = "Fehler: " + error.message;
-    }
-  }
+  document.getElementById("startBtn").onclick = () => {
+    finalTranscript = "";
+    document.getElementById("transcript").textContent = "🗣 Du: ";
+    document.getElementById("response").textContent = "🤖 GPT: ";
+    recognition.start();
+  };
 </script>
 
 </body>

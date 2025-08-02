@@ -1,32 +1,76 @@
-<!-- Sprachsteuerung für GPT -->
-<button id="startBtn">🎤 Spracheingabe starten</button>
-<div id="transcript"></div>
-<div id="response"></div>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>GPT Spracheingabe</title>
+  <style>
+    body { font-family: sans-serif; padding: 1rem; }
+    button { font-size: 1.2rem; padding: 0.5rem 1rem; }
+    #transcript, #response { margin-top: 1rem; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+<h2>🎤 GPT Sprachsteuerung</h2>
+<button id="startBtn">Spracheingabe starten</button>
+<div id="transcript">🗣 Du: </div>
+<div id="response">🤖 GPT: </div>
+
 <script>
-  const OPENAI_API_KEY = 'HIER_DEIN_KEY';
+  const OPENAI_API_KEY = "DEIN_API_KEY_HIER"; // <<< Hier deinen Key einsetzen
   const recognition = new webkitSpeechRecognition();
-  recognition.lang = 'de-DE';
+
+  recognition.lang = "de-DE";
   recognition.continuous = false;
   recognition.interimResults = false;
+
+  let lastSpokenText = "";
+  let timeout = null;
+
   recognition.onresult = function(event) {
-    const spokenText = event.results[0][0].transcript;
-    document.getElementById("transcript").innerText = "Du: " + spokenText;
-    sendToChatGPT(spokenText);
+    const spokenText = event.results[0][0].transcript.trim();
+    lastSpokenText = spokenText;
+    document.getElementById("transcript").textContent = "🗣 Du: " + spokenText;
+
+    // ⏳ 5 Sekunden warten, ob noch was kommt
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      sendToChatGPT(lastSpokenText);
+    }, 5000); // 5000 ms = 5 Sekunden Denkpause
   };
-  document.getElementById("startBtn").onclick = () => recognition.start();
+
+  recognition.onend = function() {
+    // Falls du willst, dass er automatisch neu startet:
+    // recognition.start();
+  };
+
+  document.getElementById("startBtn").onclick = function() {
+    recognition.start();
+  };
+
   async function sendToChatGPT(text) {
-    const result = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + OPENAI_API_KEY
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: text }]
-      })
-    });
-    const data = await result.json();
-    document.getElementById("response").innerText = "GPT: " + data.choices[0].message.content;
+    const responseDiv = document.getElementById("response");
+    responseDiv.textContent = "🤖 GPT: Warte auf Antwort...";
+    try {
+      const result = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + OPENAI_API_KEY
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo", // oder "gpt-4o"
+          messages: [{ role: "user", content: text }]
+        })
+      });
+      const data = await result.json();
+      const answer = data.choices?.[0]?.message?.content || "Keine Antwort erhalten.";
+      responseDiv.textContent = "🤖 GPT: " + answer;
+    } catch (error) {
+      responseDiv.textContent = "Fehler: " + error.message;
+    }
   }
 </script>
+
+</body>
+</html>

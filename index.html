@@ -1,0 +1,32 @@
+<!-- Sprachsteuerung für GPT -->
+<button id="startBtn">🎤 Spracheingabe starten</button>
+<div id="transcript"></div>
+<div id="response"></div>
+<script>
+  const OPENAI_API_KEY = 'HIER_DEIN_KEY';
+  const recognition = new webkitSpeechRecognition();
+  recognition.lang = 'de-DE';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.onresult = function(event) {
+    const spokenText = event.results[0][0].transcript;
+    document.getElementById("transcript").innerText = "Du: " + spokenText;
+    sendToChatGPT(spokenText);
+  };
+  document.getElementById("startBtn").onclick = () => recognition.start();
+  async function sendToChatGPT(text) {
+    const result = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + OPENAI_API_KEY
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: text }]
+      })
+    });
+    const data = await result.json();
+    document.getElementById("response").innerText = "GPT: " + data.choices[0].message.content;
+  }
+</script>

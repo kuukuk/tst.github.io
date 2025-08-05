@@ -13,7 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
         });
     }
-
     button.addEventListener('click', () => {
         // Überprüft, ob der Browser Benachrichtigungen unterstützt
         if ('Notification' in window) {

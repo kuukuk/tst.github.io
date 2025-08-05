@@ -2,91 +2,54 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>GPT Spracheingabe mit Pause</title>
-  <style>
-    body { font-family: sans-serif; padding: 1rem; }
-    button { font-size: 1.2rem; padding: 0.5rem 1rem; }
-    #transcript, #response { margin-top: 1rem; white-space: pre-wrap; }
-  </style>
+  <title>Push Benachrichtigung Test</title>
 </head>
 <body>
+  <h1>Push Test</h1>
+  <button id="notifyBtn">Push senden</button>
 
-<h2>🎤 GPT Sprachsteuerung mit Pauseerkennung</h2>
-<button id="startBtn">Spracheingabe starten</button>
-<div id="transcript">🗣 Du: </div>
-<div id="response">🤖 GPT: </div>
+  <script>
+    // Service Worker registrieren
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js')
+        .then(reg => console.log("Service Worker registriert", reg))
+        .catch(err => console.error("SW Registrierung fehlgeschlagen", err));
+    }
 
-<script>
-  const OPENAI_API_KEY = "DEIN_API_KEY_HIER"; // Hier API-Key eintragen
-  const recognition = new webkitSpeechRecognition();
-
-  recognition.lang = "de-DE";
-  recognition.continuous = true; // dauerhaft zuhören
-  recognition.interimResults = true; // Zwischenresultate anzeigen
-
-  let finalTranscript = "";
-  let pauseTimeout = null;
-
-  function sendToChatGPT(text) {
-    document.getElementById("response").textContent = "🤖 GPT: Warte auf Antwort...";
-    fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + OPENAI_API_KEY
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [{ role: "user", content: text }]
-      })
-    })
-      .then(res => res.json())
-      .then(data => {
-        const answer = data.choices?.[0]?.message?.content || "Keine Antwort erhalten.";
-        document.getElementById("response").textContent = "🤖 GPT: " + answer;
-      })
-      .catch(err => {
-        document.getElementById("response").textContent = "Fehler: " + err.message;
-      });
-  }
-
-  recognition.onresult = event => {
-    let interimTranscript = "";
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      if (event.results[i].isFinal) {
-        finalTranscript += event.results[i][0].transcript + " ";
-      } else {
-        interimTranscript += event.results[i][0].transcript;
+    // Nach Erlaubnis fragen
+    function askNotificationPermission() {
+      if (!("Notification" in window)) {
+        alert("Dieser Browser unterstützt keine Notifications");
+      } else if (Notification.permission !== "granted") {
+        Notification.requestPermission().then(permission => {
+          if (permission !== "granted") {
+            alert("Push nicht erlaubt 😢");
+          }
+        });
       }
     }
-    document.getElementById("transcript").textContent = "🗣 Du: " + finalTranscript + interimTranscript;
 
-    // Reset Timer bei jedem Ergebnis (auch Zwischenresultat)
-    clearTimeout(pauseTimeout);
-    pauseTimeout = setTimeout(() => {
-      if(finalTranscript.trim().length > 0){
-        sendToChatGPT(finalTranscript.trim());
-        finalTranscript = ""; // Reset nach Absenden
+    askNotificationPermission();
+
+    // Button-Event
+    document.getElementById("notifyBtn").addEventListener("click", async () => {
+      if (Notification.permission === "granted") {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          registration.showNotification("🔔 Neue Nachricht", {
+            body: "Dies ist eine Push-Benachrichtigung!",
+            icon: "https://cdn-icons-png.flaticon.com/512/1827/1827392.png",
+            vibrate: [100, 50, 100],
+            tag: "test-push",
+            renotify: true
+          });
+        } else {
+          alert("Kein Service Worker gefunden");
+        }
+      } else {
+        askNotificationPermission();
       }
-    }, 5000); // 5 Sekunden Pause
-  };
-
-  recognition.onerror = event => {
-    console.error("Speech recognition error", event.error);
-  };
-
-  recognition.onend = () => {
-    // Automatisch neu starten, damit kontinuierlich gelauscht wird
-    recognition.start();
-  };
-
-  document.getElementById("startBtn").onclick = () => {
-    finalTranscript = "";
-    document.getElementById("transcript").textContent = "🗣 Du: ";
-    document.getElementById("response").textContent = "🤖 GPT: ";
-    recognition.start();
-  };
-</script>
-
+    });
+  </script>
 </body>
 </html>

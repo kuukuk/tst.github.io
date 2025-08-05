@@ -1,54 +1,42 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8" />
-  <title>Push Benachrichtigung Test</title>
+  <meta charset="UTF-8">
+  <title>Push Test</title>
 </head>
 <body>
-  <h1>Push Test</h1>
-  <button id="notifyBtn">Push senden</button>
+  <h2>Push Benachrichtigung senden</h2>
+  <button id="pushBtn">Push senden</button>
 
   <script>
     // Service Worker registrieren
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js')
-        .then(reg => console.log("Service Worker registriert", reg))
-        .catch(err => console.error("SW Registrierung fehlgeschlagen", err));
+        .then(() => console.log('SW registriert'))
+        .catch(err => console.error('SW Fehler:', err));
     }
 
-    // Nach Erlaubnis fragen
-    function askNotificationPermission() {
-      if (!("Notification" in window)) {
-        alert("Dieser Browser unterstützt keine Notifications");
-      } else if (Notification.permission !== "granted") {
-        Notification.requestPermission().then(permission => {
-          if (permission !== "granted") {
-            alert("Push nicht erlaubt 😢");
-          }
-        });
+    // Permission holen
+    async function requestPermission() {
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert("Bitte Benachrichtigungen erlauben");
       }
     }
 
-    askNotificationPermission();
+    requestPermission();
 
-    // Button-Event
-    document.getElementById("notifyBtn").addEventListener("click", async () => {
-      if (Notification.permission === "granted") {
-        const registration = await navigator.serviceWorker.getRegistration();
-        if (registration) {
-          registration.showNotification("🔔 Neue Nachricht", {
-            body: "Dies ist eine Push-Benachrichtigung!",
-            icon: "https://cdn-icons-png.flaticon.com/512/1827/1827392.png",
-            vibrate: [100, 50, 100],
-            tag: "test-push",
-            renotify: true
-          });
-        } else {
-          alert("Kein Service Worker gefunden");
-        }
-      } else {
-        askNotificationPermission();
-      }
+    // Button-Funktion
+    document.getElementById('pushBtn').addEventListener('click', async () => {
+      const registration = await navigator.serviceWorker.ready;
+
+      registration.showNotification("🔔 Test Push", {
+        body: "Dies ist eine echte Push-Nachricht",
+        icon: "https://cdn-icons-png.flaticon.com/512/1827/1827392.png",
+        vibrate: [100, 50, 100],
+        tag: "push-demo",
+        renotify: true
+      });
     });
   </script>
 </body>
